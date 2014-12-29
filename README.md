@@ -12,4 +12,7 @@ Changes include:
 + Extracting common code that is not domain-specific into utility classes.
 
 TODO:
-+ Lots!
++ Real binary resources, currently faking them in ResourceManager.
++ Handling sockets/ports in TorController.
++ Notifications, and how they're managed.
++ Moving jtorctl into libs/ - dependency structure isn't great at the moment.
