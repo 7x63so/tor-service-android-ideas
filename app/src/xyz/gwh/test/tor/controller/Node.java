@@ -1,4 +1,4 @@
-package xyz.gwh.test.tor;
+package xyz.gwh.test.tor.controller;
 
 import java.util.StringTokenizer;
 

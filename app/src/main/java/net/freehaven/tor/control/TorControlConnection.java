@@ -13,6 +13,7 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -21,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.concurrent.CancellationException;
 
 /** A connection to a running Tor process as specified in control-spec.txt. */
 public class TorControlConnection implements TorControlCommands {
@@ -90,8 +92,8 @@ public class TorControlConnection implements TorControlCommands {
         StringTokenizer st = new StringTokenizer(s, "\n");
         while (st.hasMoreTokens()) {
             String line = st.nextToken();
-            if (line.startsWith(""))
-                line = "" +line;
+            if (line.startsWith("."))
+                line = "."+line;
             if (line.endsWith("\r"))
                 line += "\n";
             else
@@ -153,9 +155,9 @@ public class TorControlConnection implements TorControlCommands {
                     line = input.readLine();
                     if (debugOutput != null)
                         debugOutput.print("<< "+line);
-                    if (line.equals(""))
+                    if (line.equals("."))
                         break;
-                    else if (line.startsWith(""))
+                    else if (line.startsWith("."))
                         line = line.substring(1);
                     data.append(line).append('\n');
                 }

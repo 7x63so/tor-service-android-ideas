@@ -3,6 +3,7 @@ package xyz.gwh.test.tor.util;
 import org.sufficientlysecure.rootcommands.Shell;
 import org.sufficientlysecure.rootcommands.Toolbox;
 import org.sufficientlysecure.rootcommands.command.SimpleCommand;
+import xyz.gwh.test.tor.controller.Broadcaster;
 
 import java.io.File;
 import java.io.IOException;

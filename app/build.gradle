@@ -24,12 +24,6 @@ android {
         versionName "1.0"
     }
 
-    sourceSets {
-        main {
-            java.srcDirs = ['src']
-        }
-    }
-
     buildTypes {
         release {
             minifyEnabled false
@@ -39,5 +33,4 @@ android {
 
 dependencies {
     compile 'com.android.support:appcompat-v7:21.0.3'
-    compile project(':libs:RootCommands')
 }

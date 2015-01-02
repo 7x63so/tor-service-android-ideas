@@ -30,7 +30,7 @@ import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_TOR;
 /**
  * Controller for Tor commands, using the jtorcontrol library.
  */
-public class TorControllerImpl implements TorController {
+public class TorController {
 
     private static final String CMD_RESULT = "Tor (%s): %s";
     private static final String CMD_VERIFY = "%s DataDirectory %s --verify-config";
@@ -53,7 +53,7 @@ public class TorControllerImpl implements TorController {
     private File fileControlPort;
     private File fileAuthCookie;
 
-    public TorControllerImpl(String pathDirCache, Map<String, File> installedResources) {
+    public TorController(String pathDirCache, Map<String, File> installedResources) {
         this.pathDirCache = pathDirCache;
 
         fileTor = installedResources.get(FILENAME_TOR);
@@ -62,7 +62,6 @@ public class TorControllerImpl implements TorController {
         fileAuthCookie = installedResources.get(FILENAME_AUTH_COOKIE);
     }
 
-    @Override
     public void startTor(@Nullable Torrc torrc) {
         if (!isTorRunning()) {
             Broadcaster.getInstance().log(R.string.status_starting_up);
@@ -79,7 +78,6 @@ public class TorControllerImpl implements TorController {
         }
     }
 
-    @Override
     public boolean isTorRunning() {
         if (controlConnection != null) {
             try {
@@ -97,7 +95,6 @@ public class TorControllerImpl implements TorController {
         return false;
     }
 
-    @Override
     public void stopTor() {
         try {
             Broadcaster.getInstance().log("Using control port to shutdown Tor");
@@ -115,7 +112,6 @@ public class TorControllerImpl implements TorController {
         }
     }
 
-    @Override
     public void setConfig(@Nullable Torrc torrc) {
         if (isTorRunning()) {
             try {
@@ -128,6 +124,17 @@ public class TorControllerImpl implements TorController {
         }
     }
 
+    public void newIdentity() {
+        if (isTorRunning()) {
+            try {
+                controlConnection.signal(SIGNAL_NEWNYM);
+            } catch (IOException e) {
+                // the user should probably be alerted of this, maybe throw exception in signature?
+                Broadcaster.getInstance().log("Could not switch to a new identity!");
+            }
+        }
+    }
+
     @Override
     public void setEventHandler(@Nullable EventHandler eventHandler) {
         if (isTorRunning()) {
@@ -136,18 +143,6 @@ public class TorControllerImpl implements TorController {
                 controlConnection.setEvents(EVENTS);
             } catch (IOException e) {
                 Broadcaster.getInstance().log("Could not set the EventHandler: " + e.getMessage());
-            }
-        }
-    }
-
-    @Override
-    public void newIdentity() {
-        if (isTorRunning()) {
-            try {
-                controlConnection.signal(SIGNAL_NEWNYM);
-            } catch (IOException e) {
-                // the user should probably be alerted of this, maybe throw exception in signature?
-                Broadcaster.getInstance().log("Could not switch to a new identity!");
             }
         }
     }

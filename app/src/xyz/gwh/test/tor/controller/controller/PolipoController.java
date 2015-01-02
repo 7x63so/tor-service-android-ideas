@@ -1,8 +1,5 @@
 package xyz.gwh.test.tor.controller;
 
-import xyz.gwh.test.tor.Broadcaster;
-import xyz.gwh.test.tor.R;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -12,7 +9,7 @@ import java.util.Properties;
 /**
  * Controls the Polipo binary.
  */
-public class PolipoControllerImpl implements PolipoController {
+public class PolipoController implements PolipoController {
 
     private static final String PORT_HTTP = "8118";
     private static final String PORT_SOCKS = "9050";
@@ -22,7 +19,7 @@ public class PolipoControllerImpl implements PolipoController {
     private Broadcaster broadcaster;
     private File filePolipo;
 
-    public PolipoControllerImpl(Broadcaster broadcaster, File filePolipo) {
+    public PolipoController(Broadcaster broadcaster, File filePolipo) {
         this.broadcaster = broadcaster;
         this.filePolipo = filePolipo;
     }

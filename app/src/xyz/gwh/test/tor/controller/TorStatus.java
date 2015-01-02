@@ -1,4 +1,4 @@
-package xyz.gwh.test.tor;
+package xyz.gwh.test.tor.controller;
 
 /**
  * Tor connectivity states.
