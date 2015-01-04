@@ -63,7 +63,7 @@ public class TorService extends Service implements EventHandler, Broadcaster.OnS
 
         try {
             installBinaries();
-            torController = new xyz.gwh.test.tor.controller.TorController(dirCache.getCanonicalPath(), resourceManager.getInstalledResources());
+            torController = new TorController(dirCache.getCanonicalPath(), resourceManager.getInstalledResources());
         } catch (Exception e) {
             Broadcaster.getInstance().log("Unable to start Tor: " + e.getMessage());
         }
