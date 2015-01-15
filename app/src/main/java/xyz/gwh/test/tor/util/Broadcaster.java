@@ -83,6 +83,10 @@ public class Broadcaster {
         log(context.getString(resId));
     }
 
+    public void logFormat(@StringRes int resId, String... args) {
+        log(String.format(context.getString(resId), args));
+    }
+
     public void log(String message) {
         final Intent intent = new Intent(ACTION_LOG);
         intent.putExtra(ARG_MESSAGE, message);
