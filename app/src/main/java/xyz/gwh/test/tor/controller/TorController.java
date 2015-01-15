@@ -12,6 +12,7 @@ import xyz.gwh.test.tor.service.TorStatus;
 import xyz.gwh.test.tor.util.Broadcaster;
 import xyz.gwh.test.tor.util.IOUtils;
 import xyz.gwh.test.tor.util.ShellUtils;
+import xyz.gwh.test.tor.util.Tryable;
 
 import java.io.DataInputStream;
 import java.io.File;
@@ -113,7 +114,7 @@ public class TorController {
     }
 
     public void setConfig(@Nullable Torrc torrc) {
-        if (isTorRunning()) {
+        if (torrc != null && isTorRunning()) {
             try {
                 controlConnection.setConf(torrc.asCollection());
                 controlConnection.saveConf();
@@ -136,7 +137,7 @@ public class TorController {
     }
 
     public void setEventHandler(@Nullable EventHandler eventHandler) {
-        if (isTorRunning()) {
+        if (eventHandler != null && isTorRunning()) {
             controlConnection.setEventHandler(eventHandler);
             try {
                 controlConnection.setEvents(EVENTS);
@@ -179,31 +180,29 @@ public class TorController {
     }
 
     private void connectToControlPort() {
-        int port = getControlPort();
+        final int port = getControlPort();
         Broadcaster.getInstance().log("Waiting for control port...");
 
-        for (int attempts = 0; attempts < MAX_CONNECTION_ATTEMPTS; attempts++) {
-            try {
-                Broadcaster.getInstance().log("Connecting to control port: " + port);
+        new Tryable().attempt(new Tryable.Action() {
+            @Override
+            public boolean execute() {
+                try {
+                    Broadcaster.getInstance().log("Connecting to control port: " + port);
 
-                Socket torSocket = new Socket(IP_LOCALHOST, port);
-                torSocket.setSoTimeout(0);
+                    Socket torSocket = new Socket(IP_LOCALHOST, port);
+                    torSocket.setSoTimeout(0);
 
-                controlConnection = new TorControlConnection(torSocket);
-                controlConnection.launchThread(true);
+                    controlConnection = new TorControlConnection(torSocket);
+                    controlConnection.launchThread(true);
 
-                Broadcaster.getInstance().log("SUCCESS connected to Tor control port.");
-                break;
-            } catch (Exception e) {
-                Broadcaster.getInstance().log("Error connecting to Tor local control port: " + e.getMessage(), e);
+                    Broadcaster.getInstance().log("SUCCESS connected to Tor control port.");
+                    return true;
+                } catch (Exception e) {
+                    Broadcaster.getInstance().log("Error connecting to Tor local control port: " + e.getMessage(), e);
+                }
+                return false;
             }
-
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                // ignored
-            }
-        }
+        }, MAX_CONNECTION_ATTEMPTS);
     }
 
     private void authenticateWithCookie() throws Exception {
@@ -219,7 +218,7 @@ public class TorController {
 
         controlConnection.authenticate(cookie);
         Broadcaster.getInstance().log("SUCCESS - authenticated to control port.");
-        Broadcaster.getInstance().log((R.string.tor_process_starting) + ' ' + (R.string.tor_process_complete));
+        Broadcaster.getInstance().log(R.string.tor_process_starting);
     }
 
     private int getControlPort() {
