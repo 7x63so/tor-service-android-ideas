@@ -1,10 +1,12 @@
 package xyz.gwh.test.tor.resources;
 
 import android.support.annotation.NonNull;
+import net.freehaven.tor.control.ConfigEntry;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Represents a torrc configuration file.
@@ -32,6 +34,22 @@ public final class Torrc implements Serializable {
         entries = builder.entries;
     }
 
+    /**
+     * Default Torrc configuration.
+     */
+    public static final Builder DEFAULT_BUILDER = new Builder()
+            .setRunAsDaemon("1")
+            .setAvoidDiskWrites("1")
+            .setSocksPorts("auto")
+            .setSafeSocks("0")
+            .setTestSocks("0")
+            .setWarnUnsafeSocks("1")
+            .setTransPort("auto")
+            .setDnsPort("auto")
+            .setVirtualAddrNetwork("10.192.0.0/10")
+            .setAutomapHostsOnResolve("1")
+            .setCircuitStreamTimeout("60");
+
     @NonNull
     public Collection<String> asCollection() {
         return entries;
@@ -51,23 +69,17 @@ public final class Torrc implements Serializable {
      */
     public static class Builder {
 
-        /**
-         * Default Torrc configuration.
-         */
-        public static final Builder DEFAULT = new Builder()
-                .setRunAsDaemon("1")
-                .setAvoidDiskWrites("1")
-                .setSocksPorts("auto")
-                .setSafeSocks("0")
-                .setTestSocks("0")
-                .setWarnUnsafeSocks("1")
-                .setTransPort("auto")
-                .setDnsPort("auto")
-                .setVirtualAddrNetwork("10.192.0.0/10")
-                .setAutomapHostsOnResolve("1")
-                .setCircuitStreamTimeout("60");
-
         private Collection<String> entries = new ArrayList<String>();
+
+        public Builder() {
+            // default empty Builder
+        }
+
+        public Builder(List<ConfigEntry> configEntries) {
+            for(ConfigEntry entry : configEntries) {
+                add(entry.key, entry.value);
+            }
+        }
 
         public Builder setRunAsDaemon(String runAsDaemon) {
             add(KEY_RUN_AS_DAEMON, runAsDaemon);

@@ -165,14 +165,14 @@ public class TorService extends Service implements EventHandler, Broadcaster.OnS
             if (intent.hasExtra(ARG_TORRC) && intent.getSerializableExtra(ARG_TORRC) != null) {
                 torrc = (Torrc) intent.getSerializableExtra(ARG_TORRC);
             } else {
-                Torrc.Builder builder = Torrc.Builder.DEFAULT;
+                Torrc.Builder builder = Torrc.DEFAULT_BUILDER;
 
                 try {
                     String controlPortWriteToFile = resourceManager.getInstalledResources().get(FILENAME_CONTROL_PORT).getCanonicalPath();
                     builder.setControlPortWriteToFile(controlPortWriteToFile);
                     torrc = builder.build();
                 } catch (IOException e) {
-                    // throw?
+                    // throw? or no?
                 }
             }
         }
