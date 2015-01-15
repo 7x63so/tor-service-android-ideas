@@ -29,17 +29,27 @@ public final class ShellUtils {
         int procId = -1;
         String processKey = new File(cmdStr).getName();
 
-        Shell shell = Shell.startShell();
-        SimpleCommand cmd = new SimpleCommand(String.format(CMD_PS, processKey));
         try {
-            cmd.waitForFinish();
-        } catch (TimeoutException e) {
+            runCommand(String.format(CMD_PS, processKey));
+        } catch (Exception e) {
             Broadcaster.getInstance().log("There was an error when destroying process:" + processKey);
         }
 
         return procId;
     }
 
+    /**
+     * Runs a command in a new shell.
+     */
+    public static void runCommand(String command) throws Exception {
+        Shell shell = Shell.startShell();
+        shell.add(new SimpleCommand(command)).waitForFinish();
+        shell.close();
+    }
+
+    /**
+     * Kills all processes running with the given file.
+     */
     public static void killProcess(File file) throws IOException {
         try {
             String processName = file.getName();
@@ -51,7 +61,7 @@ public final class ShellUtils {
 
             Broadcaster.getInstance().log("Found " + file.getName() + " - killing now...");
         } catch (Exception e) {
-            // return false, log?
+            // log?
         }
     }
 }
