@@ -3,9 +3,6 @@ package xyz.gwh.test.tor.controller;
 import android.support.annotation.Nullable;
 import net.freehaven.tor.control.EventHandler;
 import net.freehaven.tor.control.TorControlConnection;
-import org.sufficientlysecure.rootcommands.Shell;
-import org.sufficientlysecure.rootcommands.Toolbox;
-import org.sufficientlysecure.rootcommands.command.SimpleCommand;
 import xyz.gwh.test.tor.R;
 import xyz.gwh.test.tor.resources.Torrc;
 import xyz.gwh.test.tor.service.TorStatus;
@@ -82,13 +79,7 @@ public class TorController {
     public boolean isTorRunning() {
         if (controlConnection != null) {
             try {
-                String processName = fileTor.getName();
-                Shell shell = Shell.startShell();
-                Toolbox toolbox = new Toolbox(shell);
-                boolean isProcessRunning = toolbox.isProcessRunning(processName);
-
-                shell.close();
-                return isProcessRunning;
+                return ShellUtils.isProcessRunning(fileTor.getName());
             } catch (Exception e) {
                 // return false, log?
             }
@@ -137,7 +128,7 @@ public class TorController {
     }
 
     public void setEventHandler(@Nullable EventHandler eventHandler) {
-        if (eventHandler != null && isTorRunning()) {
+        if (eventHandler != null) {
             controlConnection.setEventHandler(eventHandler);
             try {
                 controlConnection.setEvents(EVENTS);
@@ -256,13 +247,10 @@ public class TorController {
     }
 
     private void execute(String cmdStr) throws Exception {
-        SimpleCommand cmd = new SimpleCommand(cmdStr);
-        Shell shell = Shell.startShell();
-        shell.add(cmd).waitForFinish();
-        shell.close();
+        ShellUtils.CommandResult result = ShellUtils.runCommand(cmdStr);
 
-        int exitCode = cmd.getExitCode();
-        String output = cmd.getOutput();
+        int exitCode = result.exitCode;
+        String output = result.output;
 
         //TODO: custom exception
         if (exitCode != 0 && output != null && output.length() > 0) {

@@ -8,10 +8,11 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import org.sufficientlysecure.rootcommands.Shell;
 import org.sufficientlysecure.rootcommands.Toolbox;
-import org.sufficientlysecure.rootcommands.command.SimpleCommand;
+import xyz.gwh.test.tor.R;
 import xyz.gwh.test.tor.exception.PermissionsNotSetException;
 import xyz.gwh.test.tor.exception.ResourceNotInstalledException;
 import xyz.gwh.test.tor.util.IOUtils;
+import xyz.gwh.test.tor.util.ShellUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Manages the installation of Tor resources
+ * Manages the installation of Tor resources.
  */
 public final class ResourceManager {
 
@@ -42,23 +43,14 @@ public final class ResourceManager {
     private static final Map<String, Integer> resources = new HashMap<String, Integer>();
 
     static {
-//        resources.put(FILENAME_TORRC, R.raw.torrc);
-//        resources.put(FILENAME_POLIPO_CONF, R.raw.torpolipo);
-//        resources.put(FILENAME_TOR, R.raw.tor);
-//        resources.put(FILENAME_POLIPO, R.raw.polipo);
-//        resources.put(FILENAME_OBFSCLIENT, R.raw.obfsclient);
-//        resources.put(FILENAME_IPTABLES, R.raw.xtables);
-//        resources.put(FILENAME_GEOIP, R.raw.geoip);
-//        resources.put(FILENAME_GEOIP6, R.raw.geoip6);
-
-        resources.put(FILENAME_TORRC, 1);
-        resources.put(FILENAME_POLIPO_CONF, 1);
-        resources.put(FILENAME_TOR, 1);
-        resources.put(FILENAME_POLIPO, 1);
-        resources.put(FILENAME_OBFSCLIENT, 1);
-        resources.put(FILENAME_IPTABLES, 1);
-        resources.put(FILENAME_GEOIP, 1);
-        resources.put(FILENAME_GEOIP6, 1);
+        resources.put(FILENAME_TORRC, R.raw.torrc);
+        resources.put(FILENAME_POLIPO_CONF, R.raw.torpolipo);
+        resources.put(FILENAME_TOR, R.raw.tor);
+        resources.put(FILENAME_POLIPO, R.raw.polipo);
+        resources.put(FILENAME_OBFSCLIENT, R.raw.obfsclient);
+        resources.put(FILENAME_IPTABLES, R.raw.xtables);
+        resources.put(FILENAME_GEOIP, R.raw.geoip);
+        resources.put(FILENAME_GEOIP6, R.raw.geoip6);
     }
 
     private Map<String, File> installedResources;
@@ -74,8 +66,7 @@ public final class ResourceManager {
     }
 
     /**
-     * Clears installation directory and installs Tor resource binaries.
-     * Sets executable permissions on the installed binaries.
+     * Clears installation directory, installs binaries and sets them as executable.
      */
     public void installResources() throws ResourceNotInstalledException, PermissionsNotSetException {
         installedResources.clear();
@@ -126,12 +117,7 @@ public final class ResourceManager {
             String pathTor = installedResources.get(FILENAME_TOR).getCanonicalPath();
             String cmd = String.format(CMD_VERSION, pathTor);
 
-            Shell shell = Shell.startShell();
-            SimpleCommand sc = new SimpleCommand(cmd);
-            shell.add(sc).waitForFinish();
-            version = sc.getOutput();
-
-            shell.close();
+            version = ShellUtils.runCommand(cmd).output;
         } catch (Exception e) {
             // return "Unknown"
         }
@@ -143,10 +129,7 @@ public final class ResourceManager {
      */
     private void deleteFilesInPath(String path) throws Exception {
         String cmd = String.format(CMD_DELETE_FILES_IN_DIR, path);
-
-        Shell shell = Shell.startShell();
-        shell.add(new SimpleCommand(cmd)).waitForFinish();
-        shell.close();
+        ShellUtils.runCommand(cmd);
     }
 
     /**
@@ -163,13 +146,14 @@ public final class ResourceManager {
     }
 
     /**
-     * Starts shell in dir and attempts to change permissions to executable on file.
+     * Attempts to change permissions on file to executable.
      */
     private void setBinaryAsExecutable(File file) throws PermissionsNotSetException {
         try {
             Shell shell = Shell.startShell();
             Toolbox toolbox = new Toolbox(shell);
             toolbox.setFilePermissions(file.getAbsolutePath(), PERMISSION_EXECUTABLE);
+            shell.close();
         } catch (Exception e) {
             throw new PermissionsNotSetException("Unable to set executable permissions on " + file.getAbsolutePath());
         }

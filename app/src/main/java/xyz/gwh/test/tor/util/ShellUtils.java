@@ -6,7 +6,6 @@ import org.sufficientlysecure.rootcommands.command.SimpleCommand;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Utility class for Android processes.
@@ -41,10 +40,14 @@ public final class ShellUtils {
     /**
      * Runs a command in a new shell.
      */
-    public static void runCommand(String command) throws Exception {
+    public static CommandResult runCommand(String commandStr) throws Exception {
         Shell shell = Shell.startShell();
-        shell.add(new SimpleCommand(command)).waitForFinish();
+        SimpleCommand command = new SimpleCommand(commandStr);
+
+        shell.add(command).waitForFinish();
         shell.close();
+
+        return new CommandResult(command.getExitCode(), command.getOutput());
     }
 
     /**
@@ -62,6 +65,31 @@ public final class ShellUtils {
             Broadcaster.getInstance().log("Found " + file.getName() + " - killing now...");
         } catch (Exception e) {
             // log?
+        }
+    }
+
+    /**
+     * Returns true if a process with the given name is running.
+     */
+    public static boolean isProcessRunning(String processName) throws Exception {
+        Shell shell = Shell.startShell();
+        Toolbox toolbox = new Toolbox(shell);
+        boolean isRunning = toolbox.isProcessRunning(processName);
+
+        shell.close();
+        return isRunning;
+    }
+
+    /**
+     * Container for exit code and output returned by shell command.
+     */
+    public static final class CommandResult {
+        public final int exitCode;
+        public final String output;
+
+        public CommandResult(int exitCode, String output) {
+            this.exitCode = exitCode;
+            this.output = output;
         }
     }
 }
