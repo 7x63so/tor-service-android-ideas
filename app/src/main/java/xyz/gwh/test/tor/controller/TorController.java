@@ -7,6 +7,7 @@ import xyz.gwh.test.tor.R;
 import xyz.gwh.test.tor.resources.Torrc;
 import xyz.gwh.test.tor.service.TorStatus;
 import xyz.gwh.test.tor.util.Broadcaster;
+import xyz.gwh.test.tor.util.CommandResult;
 import xyz.gwh.test.tor.util.IOUtils;
 import xyz.gwh.test.tor.util.ShellUtils;
 import xyz.gwh.test.tor.util.Tryable;
@@ -127,7 +128,8 @@ public class TorController {
         }
     }
 
-    public void setEventHandler(@Nullable EventHandler eventHandler) {
+    // not sure when to set this...
+    public void setEventHandler(@Nullable final EventHandler eventHandler) {
         if (eventHandler != null) {
             controlConnection.setEventHandler(eventHandler);
             try {
@@ -247,7 +249,7 @@ public class TorController {
     }
 
     private void execute(String cmdStr) throws Exception {
-        ShellUtils.CommandResult result = ShellUtils.runCommand(cmdStr);
+        CommandResult result = ShellUtils.runCommand(cmdStr);
 
         int exitCode = result.exitCode;
         String output = result.output;

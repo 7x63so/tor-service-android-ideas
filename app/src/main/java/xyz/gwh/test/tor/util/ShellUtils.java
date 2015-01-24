@@ -21,6 +21,7 @@ public final class ShellUtils {
      */
     private static final String CMD_PS = "toolbox ps -o pid,name %s";
 
+    // This doesn't seem to be doing anything right now!
     public static int findProcessId(String cmdStr) throws IOException {
         //TODO: need to test this with adb shell
         //https://stackoverflow.com/questions/17925635/java-regex-extract-pid-from-ps-command
@@ -78,18 +79,5 @@ public final class ShellUtils {
 
         shell.close();
         return isRunning;
-    }
-
-    /**
-     * Container for exit code and output returned by shell command.
-     */
-    public static final class CommandResult {
-        public final int exitCode;
-        public final String output;
-
-        public CommandResult(int exitCode, String output) {
-            this.exitCode = exitCode;
-            this.output = output;
-        }
     }
 }
