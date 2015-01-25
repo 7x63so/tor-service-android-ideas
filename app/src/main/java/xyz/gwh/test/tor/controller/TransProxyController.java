@@ -1,13 +1,14 @@
 package xyz.gwh.test.tor.controller;
 
+import xyz.gwh.test.tor.util.Broadcaster;
 import xyz.gwh.test.tor.util.ShellUtils;
 
 import java.io.File;
+import java.util.List;
 
 /**
  * Controller for transparent proxying.
- *
- * //TODO: implement setTransparentProxyingByApp(), logging, exceptions
+ * TODO: notifications should be handled with Broadcaster
  */
 public class TransProxyController {
 
@@ -24,6 +25,8 @@ public class TransProxyController {
 
     private static final String IPTABLES_APPEND_RULES_COMMAND = "--append";
     private static final String IPTABLES_DELETE_RULES_COMMAND = "--delete";
+
+    private static final String ORBOT_PACKAGE = "org.torproject.android";
 
     private String pathIptablesV4;
     private String pathIptablesV6;
@@ -45,7 +48,7 @@ public class TransProxyController {
     }
 
     /**
-     * Enables transparent proxying.
+     * Enables transparent proxying for everything.
      */
     public void enableProxy(int uid, int dnsPort, int proxyPort) throws Exception {
         setIpV6Rules(uid, IPTABLES_APPEND_RULES_COMMAND);
@@ -53,11 +56,25 @@ public class TransProxyController {
     }
 
     /**
-     * Disables transparent proxying.
+     * Disables transparent proxying for everything.
      */
     public void disableProxy(int uid, int dnsPort, int proxyPort) throws Exception {
         setIpV6Rules(uid, IPTABLES_DELETE_RULES_COMMAND);
         setProxyRules(uid, IPTABLES_DELETE_RULES_COMMAND, dnsPort, proxyPort);
+    }
+
+    /**
+     * Enables transparent proxying for each app in the list.
+     */
+    public void enableProxy(int uid, int dnsPort, int proxyPort, List<TorifiedApp> apps) throws Exception {
+        setProxyRules(uid, IPTABLES_APPEND_RULES_COMMAND, dnsPort, proxyPort, apps);
+    }
+
+    /**
+     * Disables transparent proxying for each app in the list.
+     */
+    public void disableProxy(int uid, int dnsPort, int proxyPort, List<TorifiedApp> apps) throws Exception {
+        setProxyRules(uid, IPTABLES_DELETE_RULES_COMMAND, dnsPort, proxyPort, apps);
     }
 
     /**
@@ -94,7 +111,36 @@ public class TransProxyController {
     }
 
     /**
-     * Appends or deletes rules for proxying depending on the command given.
+     * Appends or deletes rules for proxying each app in the list.
+     */
+    private void setProxyRules(int uid, String iptablesCommand, int dnsPort, int proxyPort, List<TorifiedApp> apps) throws Exception {
+        String command;
+
+        command = pathIptablesV4 + " -t nat " + iptablesCommand + " OUTPUT -p udp --dport " + STANDARD_DNS_PORT + " -j REDIRECT --to-ports " + dnsPort;
+        ShellUtils.runCommand(command);
+
+        // build up array of shell cmds to execute under one root context
+        for (TorifiedApp app : apps) {
+            boolean isAppendRulesCommand = IPTABLES_APPEND_RULES_COMMAND.equals(iptablesCommand);
+            boolean isOrbotPackage = app.getUsername().equals(ORBOT_PACKAGE);
+            if (!isOrbotPackage && (isAppendRulesCommand || app.isTorified())) {
+                Broadcaster.getInstance().log("transproxy for app: " + app.getUsername() + " (" + app.getUid() + "): enable=" + isAppendRulesCommand);
+
+                setIpV6Rules(app.getUid(), iptablesCommand);
+
+                // Set up port redirection
+                command = pathIptablesV4 + " -t nat " + iptablesCommand + " OUTPUT  -p tcp ! -d 127.0.0.1 -m owner --uid-owner " + uid + " -m tcp --syn -j REDIRECT --to-ports " + proxyPort;
+                ShellUtils.runCommand(command);
+
+                // Reject all other outbound packets
+                command = pathIptablesV4 + " -t filter " + iptablesCommand + " OUTPUT -m owner --uid-owner " + app.getUid() + " ! -d 127.0.0.1 -j REJECT";
+                ShellUtils.runCommand(command);
+            }
+        }
+    }
+
+    /**
+     * Appends or deletes rules for proxying.
      */
     private void setProxyRules(int uid, String iptablesCommand, int dnsPort, int proxyPort) throws Exception {
         String natTableCommand = pathIptablesV4 + " -t nat " + iptablesCommand + " OUTPUT ";
@@ -116,6 +162,8 @@ public class TransProxyController {
         // same for DNS
         command = natTableCommand + "-p udp ! -d 127.0.0.1 -m owner ! --uid-owner " + uid + " --dport " + STANDARD_DNS_PORT + " -j REDIRECT --to-ports " + dnsPort;
         ShellUtils.runCommand(command);
+
+        //TODO: dns leak and tcp leak protection commands if debug logging enabled
 
         // allow access to transproxy port
         command = filterTableCommand + "-p tcp -m tcp --dport %d -j ACCEPT";
