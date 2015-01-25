@@ -93,15 +93,12 @@ public class TransProxyController {
      * Deletes all proxy rules from the chain.
      */
     public void flushRules() throws Exception {
-        String commandFormat;
         String command;
 
-        commandFormat = "%s -t nat --flush";
-        command = String.format(commandFormat, pathIptablesV4);
+        command = pathIptablesV4 + " -t nat --flush";
         ShellUtils.runCommand(command);
 
-        commandFormat = "%s -t filter --flush";
-        command = String.format(commandFormat, pathIptablesV4);
+        command = pathIptablesV4 + " -t filter --flush";
         ShellUtils.runCommand(command);
 
         setIpV6Rules(IPTABLES_DELETE_RULES_COMMAND);
@@ -110,7 +107,7 @@ public class TransProxyController {
     /**
      * Enable proxy for tethering.
      */
-    public void enableTetheringProxy(int dnsPort, int proxyPort) throws Exception {
+    public void enableTetheringProxy() throws Exception {
         String[] hwinterfaces = new String[]{"usb0", "wl0.1"};
 
         for (String hwinterface : hwinterfaces) {
