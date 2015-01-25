@@ -13,7 +13,7 @@ DONE:
 + Extracting common code that is not domain-specific into utility classes.
 
 TODO:
-+ Transparent proxying
++ Transparent proxying (almost!)
 + VPN
 + Real binary resources, currently faking them in ResourceManager.
 + Handling sockets/ports in TorController.
