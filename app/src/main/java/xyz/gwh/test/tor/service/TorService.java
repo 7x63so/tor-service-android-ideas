@@ -6,20 +6,33 @@ import android.content.Intent;
 import android.os.IBinder;
 import net.freehaven.tor.control.EventHandler;
 import xyz.gwh.test.tor.controller.TorController;
-import xyz.gwh.test.tor.util.Broadcaster;
+import xyz.gwh.test.tor.controller.TransProxyController;
 import xyz.gwh.test.tor.exception.PermissionsNotSetException;
 import xyz.gwh.test.tor.exception.ResourceNotInstalledException;
 import xyz.gwh.test.tor.resources.ResourceManager;
 import xyz.gwh.test.tor.resources.Torrc;
+import xyz.gwh.test.tor.util.Broadcaster;
 import xyz.gwh.test.tor.util.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
+import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_AUTH_COOKIE;
 import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_CONTROL_PORT;
+import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_POLIPO;
+import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_POLIPO_CONF;
+import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_TOR;
 
 public class TorService extends Service implements EventHandler, Broadcaster.OnStatusChangedListener {
+
+    private static final int HTTP_PORT = 8118;
+    private static final int SOCKS_PORT = 9050;
+
+    // these will need to be configurable
+    private static final int DNS_PORT = 5400;
+    private static final int TRANSPROXY_PORT = 9040;
 
     private static final String TOR_CONTROL_PORT_MSG_BOOTSTRAP_DONE = "Bootstrapped 100%";
     private static final String BINARY_TOR_VERSION = "0.2.5.10-openssl1.0.1i-nonPIE-polipofix";
@@ -61,9 +74,11 @@ public class TorService extends Service implements EventHandler, Broadcaster.OnS
         File dirCache = getDir(DIRECTORY_TOR_DATA, Application.MODE_PRIVATE);
         resourceManager = new ResourceManager(this, dirBin.getAbsolutePath());
 
+        ServiceInfo serviceInfo = buildServiceInfo(dirCache, resourceManager.getInstalledResources());
+
         try {
             installBinaries();
-            torController = new TorController(dirCache.getCanonicalPath(), resourceManager.getInstalledResources());
+            torController = new TorController(serviceInfo);
         } catch (Exception e) {
             Broadcaster.getInstance().log("Unable to start Tor: " + e.getMessage());
         }
@@ -155,6 +170,27 @@ public class TorService extends Service implements EventHandler, Broadcaster.OnS
         }
     }
 
+    private ServiceInfo buildServiceInfo(File dirCache, Map<String, File> installedResources) {
+        File fileTor = installedResources.get(FILENAME_TOR);
+        File filePolipo = installedResources.get(FILENAME_POLIPO);
+        File filePolipoConfig = installedResources.get(FILENAME_POLIPO_CONF);
+        File fileControlPort = installedResources.get(FILENAME_CONTROL_PORT);
+        File fileAuthCookie = installedResources.get(FILENAME_AUTH_COOKIE);
+
+        return new ServiceInfo.Builder()
+                .setDirCache(dirCache)
+                .setFileTor(fileTor)
+                .setFilePolipo(filePolipo)
+                .setFilePolipoConfig(filePolipoConfig)
+                .setFileControlPort(fileControlPort)
+                .setFileAuthCookie(fileAuthCookie)
+                .setHttpPort(HTTP_PORT)
+                .setSocksPort(SOCKS_PORT)
+                .setDnsPort(DNS_PORT)
+                .setProxyPort(TRANSPROXY_PORT)
+                .build();
+    }
+
     private class TorCommand implements Runnable {
         private Intent intent;
         private Torrc torrc;
@@ -196,6 +232,9 @@ public class TorService extends Service implements EventHandler, Broadcaster.OnS
             } else {
                 Broadcaster.getInstance().log("TorService received an unrecognized command: " + action);
             }
+
+            // need to define a command for enabling/disabling transparent proxy
+            // or, alternatively, piggy-back on the START/UPDATE commands.
         }
     }
 }

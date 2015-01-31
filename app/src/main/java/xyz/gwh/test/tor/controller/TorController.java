@@ -5,6 +5,7 @@ import net.freehaven.tor.control.EventHandler;
 import net.freehaven.tor.control.TorControlConnection;
 import xyz.gwh.test.tor.R;
 import xyz.gwh.test.tor.resources.Torrc;
+import xyz.gwh.test.tor.service.ServiceInfo;
 import xyz.gwh.test.tor.service.TorStatus;
 import xyz.gwh.test.tor.util.Broadcaster;
 import xyz.gwh.test.tor.util.CommandResult;
@@ -13,18 +14,12 @@ import xyz.gwh.test.tor.util.ShellUtils;
 import xyz.gwh.test.tor.util.Tryable;
 
 import java.io.DataInputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-
-import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_AUTH_COOKIE;
-import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_CONTROL_PORT;
-import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_POLIPO;
-import static xyz.gwh.test.tor.resources.ResourceManager.FILENAME_TOR;
 
 /**
  * Controller for Tor commands, using the jtorcontrol library.
@@ -45,20 +40,13 @@ public class TorController {
     private static final int MAX_CONNECTION_ATTEMPTS = 3;
 
     private TorControlConnection controlConnection;
-    private String pathDirCache;
+    private PolipoController polipoController;
 
-    private File fileTor;
-    private File filePolipo;
-    private File fileControlPort;
-    private File fileAuthCookie;
+    private ServiceInfo serviceInfo;
 
-    public TorController(String pathDirCache, Map<String, File> installedResources) {
-        this.pathDirCache = pathDirCache;
-
-        fileTor = installedResources.get(FILENAME_TOR);
-        filePolipo = installedResources.get(FILENAME_POLIPO);
-        fileControlPort = installedResources.get(FILENAME_CONTROL_PORT);
-        fileAuthCookie = installedResources.get(FILENAME_AUTH_COOKIE);
+    public TorController(ServiceInfo serviceInfo) {
+        this.serviceInfo = serviceInfo;
+        polipoController = new PolipoController(serviceInfo);
     }
 
     public void startTor(@Nullable Torrc torrc) {
@@ -80,7 +68,7 @@ public class TorController {
     public boolean isTorRunning() {
         if (controlConnection != null) {
             try {
-                return ShellUtils.isProcessRunning(fileTor.getName());
+                return ShellUtils.isProcessRunning(serviceInfo.fileTor.getName());
             } catch (Exception e) {
                 // return false, log?
             }
@@ -98,8 +86,8 @@ public class TorController {
                 controlConnection.signal(SIGNAL_HALT);
             }
 
-            ShellUtils.killProcess(fileTor);
-            ShellUtils.killProcess(filePolipo);
+            ShellUtils.killProcess(serviceInfo.fileTor);
+            polipoController.stopPolipo();
         } catch (IOException e) {
             Broadcaster.getInstance().log("There was a problem shutting Tor down - try again?");
         }
@@ -145,7 +133,8 @@ public class TorController {
         Broadcaster.getInstance().log(R.string.status_starting_up);
 
         try {
-            String pathTor = fileTor.getCanonicalPath();
+            String pathDirCache = serviceInfo.dirCache.getCanonicalPath();
+            String pathTor = serviceInfo.fileTor.getCanonicalPath();
             String cmdVerify = String.format(CMD_VERIFY, pathTor, pathDirCache);
             String cmdRun = String.format(CMD_RUN, pathTor, pathDirCache);
 
@@ -159,13 +148,14 @@ public class TorController {
             //initControlConnection(false);
 
             controlConnection.setConf(torrc.asCollection());
+
+            polipoController.startPolipo();
         } catch (Exception e) {
             // ignore - check if Tor is running below
         }
 
         if (isTorRunning()) {
             Broadcaster.getInstance().log("Tor started; process id=" + getTorPid());
-            // send message back to service to start polipo
         } else {
             Broadcaster.getInstance().status(TorStatus.OFF);
             Broadcaster.getInstance().log("Unable to start Tor");
@@ -199,13 +189,13 @@ public class TorController {
     }
 
     private void authenticateWithCookie() throws Exception {
-        if (!fileAuthCookie.exists()) {
+        if (!serviceInfo.fileAuthCookie.exists()) {
             Broadcaster.getInstance().log("Tor authentication cookie does not exist yet");
             throw new Exception("Couldn't authenticate, no cookie!");
         }
 
-        byte[] cookie = new byte[(int) fileAuthCookie.length()];
-        DataInputStream fis = new DataInputStream(new FileInputStream(fileAuthCookie));
+        byte[] cookie = new byte[(int) serviceInfo.fileAuthCookie.length()];
+        DataInputStream fis = new DataInputStream(new FileInputStream(serviceInfo.fileAuthCookie));
         fis.read(cookie);
         fis.close();
 
@@ -216,16 +206,16 @@ public class TorController {
 
     private int getControlPort() {
         try {
-            if (fileControlPort.exists()) {
-                Broadcaster.getInstance().log("Reading control port config file: " + fileControlPort.getCanonicalPath());
+            if (serviceInfo.fileControlPort.exists()) {
+                Broadcaster.getInstance().log("Reading control port config file: " + serviceInfo.fileControlPort.getCanonicalPath());
 
-                String port = IOUtils.readLine(fileControlPort);
+                String port = IOUtils.readLine(serviceInfo.fileControlPort);
                 if (!port.isEmpty()) {
                     String[] lineParts = port.split(":");
                     return Integer.parseInt(lineParts[1]);
                 }
             } else {
-                Broadcaster.getInstance().log("Control Port config file does not yet exist (waiting for tor): " + fileControlPort.getCanonicalPath());
+                Broadcaster.getInstance().log("Control Port config file does not yet exist (waiting for tor): " + serviceInfo.fileControlPort.getCanonicalPath());
             }
         } catch (Exception e) {
             Broadcaster.getInstance().log("unable to read control port config file");
@@ -263,7 +253,6 @@ public class TorController {
         }
     }
 
-    /*
     private void initControlConnection(boolean isReconnect) throws Exception {
         //TODO: not entirely sure what we're doing here...
         Broadcaster.getInstance().status(TorStatus.CONNECTING);
@@ -272,32 +261,31 @@ public class TorController {
         //if we are reconnected then we don't need to reset the ports
         if (!isReconnect) {
             try {
-                ServerSocket ss = new ServerSocket(Integer.parseInt(socksPortPref));
+                ServerSocket ss = new ServerSocket(serviceInfo.socksPort);
                 ss.close();
 
-                Broadcaster.getInstance().log("Local SOCKS port: " + socksPortPref);
+                Broadcaster.getInstance().log("Local SOCKS port: " + serviceInfo.socksPort);
             } catch (Exception e) {
-                Broadcaster.getInstance().log("Error setting TransProxy port to: " + socksPortPref);
+                Broadcaster.getInstance().log("Error setting TransProxy port to: " + serviceInfo.socksPort);
             }
 
             try {
-                ServerSocket ss = new ServerSocket(Integer.parseInt(transPort));
+                ServerSocket ss = new ServerSocket(serviceInfo.proxyPort);
                 ss.close();
 
-                Broadcaster.getInstance().log("Local TransProxy port: " + transPort);
+                Broadcaster.getInstance().log("Local TransProxy port: " + serviceInfo.proxyPort);
             } catch (Exception e) {
-                Broadcaster.getInstance().log("ERROR setting TransProxy port to: " + transPort);
+                Broadcaster.getInstance().log("ERROR setting TransProxy port to: " + serviceInfo.proxyPort);
             }
 
             try {
-                ServerSocket ss = new ServerSocket(Integer.parseInt(dnsPort));
+                ServerSocket ss = new ServerSocket(serviceInfo.dnsPort);
                 ss.close();
 
-                Broadcaster.getInstance().log("Local DNSPort port: " + transPort);
+                Broadcaster.getInstance().log("Local DNSPort port: " + serviceInfo.proxyPort);
             } catch (Exception e) {
-                Broadcaster.getInstance().log("ERROR setting DNSport to: " + dnsPort);
+                Broadcaster.getInstance().log("ERROR setting DNSport to: " + serviceInfo.dnsPort);
             }
         }
     }
-    */
 }
