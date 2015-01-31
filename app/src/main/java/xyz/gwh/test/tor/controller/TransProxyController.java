@@ -1,5 +1,6 @@
 package xyz.gwh.test.tor.controller;
 
+import xyz.gwh.test.tor.service.ServiceInfo;
 import xyz.gwh.test.tor.util.Broadcaster;
 import xyz.gwh.test.tor.util.ShellUtils;
 
@@ -8,6 +9,7 @@ import java.util.List;
 
 /**
  * Controller for transparent proxying.
+ *
  * TODO: notifications should be handled with Broadcaster
  */
 public class TransProxyController {
@@ -31,17 +33,14 @@ public class TransProxyController {
     private String pathIptablesV4;
     private String pathIptablesV6;
 
+    private ServiceInfo serviceInfo;
     private int uid;
-    private int dnsPort;
-    private int proxyPort;
 
     /**
      * The controller will send commands to xtables.
      */
-    public TransProxyController(int uid, int dnsPort, int proxyPort, File fileXtables) {
+    public TransProxyController(ServiceInfo serviceInfo, int uid, File fileXtables) {
         this.uid = uid;
-        this.dnsPort = dnsPort;
-        this.proxyPort = proxyPort;
 
         pathIptablesV4 = fileXtables.getAbsolutePath() + " iptables";
         pathIptablesV6 = fileXtables.getAbsolutePath() + " ip6tables";
@@ -50,10 +49,9 @@ public class TransProxyController {
     /**
      * The controller will send commands to the system iptables.
      */
-    public TransProxyController(int uid, int dnsPort, int proxyPort) {
+    public TransProxyController(ServiceInfo serviceInfo, int uid) {
+        this.serviceInfo = serviceInfo;
         this.uid = uid;
-        this.dnsPort = dnsPort;
-        this.proxyPort = proxyPort;
 
         pathIptablesV4 = findIptablesPath(IpVersion.V4);
         pathIptablesV6 = findIptablesPath(IpVersion.V6);
@@ -62,17 +60,17 @@ public class TransProxyController {
     /**
      * Enables transparent proxying for everything.
      */
-    public void enableProxy(int httpPort, int socksPort) throws Exception {
+    public void enableProxy() throws Exception {
         setIpV6Rules(uid, IPTABLES_APPEND_RULES_COMMAND);
-        setProxyRules(httpPort, socksPort, IPTABLES_APPEND_RULES_COMMAND);
+        setProxyRules(IPTABLES_APPEND_RULES_COMMAND);
     }
 
     /**
      * Disables transparent proxying for everything.
      */
-    public void disableProxy(int httpPort, int socksPort) throws Exception {
+    public void disableProxy() throws Exception {
         setIpV6Rules(uid, IPTABLES_DELETE_RULES_COMMAND);
-        setProxyRules(httpPort, socksPort, IPTABLES_DELETE_RULES_COMMAND);
+        setProxyRules(IPTABLES_DELETE_RULES_COMMAND);
     }
 
     /**
@@ -111,10 +109,10 @@ public class TransProxyController {
         String[] hwinterfaces = new String[]{"usb0", "wl0.1"};
 
         for (String hwinterface : hwinterfaces) {
-            String tcpCommand = pathIptablesV4 + " -t nat --append PREROUTING -i " + hwinterface + " -p udp --dport 53 -j REDIRECT --to-ports" + dnsPort;
+            String tcpCommand = pathIptablesV4 + " -t nat --append PREROUTING -i " + hwinterface + " -p udp --dport 53 -j REDIRECT --to-ports" + serviceInfo.dnsPort;
             ShellUtils.runCommand(tcpCommand);
 
-            String udpCommand = pathIptablesV4 + " -t nat --append PREROUTING -i " + hwinterface + " -p tcp -j REDIRECT --to-ports" + proxyPort;
+            String udpCommand = pathIptablesV4 + " -t nat --append PREROUTING -i " + hwinterface + " -p tcp -j REDIRECT --to-ports" + serviceInfo.proxyPort;
             ShellUtils.runCommand(udpCommand);
         }
     }
@@ -125,7 +123,7 @@ public class TransProxyController {
     private void setProxyRules(String iptablesCommand, List<TorifiedApp> apps) throws Exception {
         String command;
 
-        command = pathIptablesV4 + " -t nat " + iptablesCommand + " OUTPUT -p udp --dport " + STANDARD_DNS_PORT + " -j REDIRECT --to-ports " + dnsPort;
+        command = pathIptablesV4 + " -t nat " + iptablesCommand + " OUTPUT -p udp --dport " + STANDARD_DNS_PORT + " -j REDIRECT --to-ports " + serviceInfo.dnsPort;
         ShellUtils.runCommand(command);
 
         // build up array of shell cmds to execute under one root context
@@ -138,7 +136,7 @@ public class TransProxyController {
                 setIpV6Rules(app.getUid(), iptablesCommand);
 
                 // Set up port redirection
-                command = pathIptablesV4 + " -t nat " + iptablesCommand + " OUTPUT  -p tcp ! -d 127.0.0.1 -m owner --uid-owner " + uid + " -m tcp --syn -j REDIRECT --to-ports " + proxyPort;
+                command = pathIptablesV4 + " -t nat " + iptablesCommand + " OUTPUT  -p tcp ! -d 127.0.0.1 -m owner --uid-owner " + uid + " -m tcp --syn -j REDIRECT --to-ports " + serviceInfo.proxyPort;
                 ShellUtils.runCommand(command);
 
                 // Reject all other outbound packets
@@ -151,7 +149,7 @@ public class TransProxyController {
     /**
      * Appends or deletes rules for proxying.
      */
-    private void setProxyRules(int httpPort, int socksPort, String iptablesCommand) throws Exception {
+    private void setProxyRules(String iptablesCommand) throws Exception {
         String natTableCommand = pathIptablesV4 + " -t nat " + iptablesCommand + " OUTPUT ";
         String filterTableCommand = pathIptablesV4 + " -t filter " + iptablesCommand + " OUTPUT ";
         String command;
@@ -165,29 +163,29 @@ public class TransProxyController {
         ShellUtils.runCommand(command);
 
         // set up port redirection
-        command = natTableCommand + "-p tcp ! -d 127.0.0.1 -m owner ! --uid-owner " + uid + " -m tcp --syn -j REDIRECT --to-ports " + proxyPort;
+        command = natTableCommand + "-p tcp ! -d 127.0.0.1 -m owner ! --uid-owner " + uid + " -m tcp --syn -j REDIRECT --to-ports " + serviceInfo.proxyPort;
         ShellUtils.runCommand(command);
 
         // same for DNS
-        command = natTableCommand + "-p udp ! -d 127.0.0.1 -m owner ! --uid-owner " + uid + " --dport " + STANDARD_DNS_PORT + " -j REDIRECT --to-ports " + dnsPort;
+        command = natTableCommand + "-p udp ! -d 127.0.0.1 -m owner ! --uid-owner " + uid + " --dport " + STANDARD_DNS_PORT + " -j REDIRECT --to-ports " + serviceInfo.dnsPort;
         ShellUtils.runCommand(command);
 
         //TODO: dns leak and tcp leak protection commands if debug logging enabled
 
         // allow access to transproxy port
-        command = filterTableCommand + "-p tcp -m tcp --dport " + proxyPort + " -j ACCEPT";
+        command = filterTableCommand + "-p tcp -m tcp --dport " + serviceInfo.proxyPort + " -j ACCEPT";
         ShellUtils.runCommand(command);
 
         // allow access to local HTTP port
-        command = filterTableCommand + "-p tcp -m tcp --dport " + httpPort + " -j ACCEPT";
+        command = filterTableCommand + "-p tcp -m tcp --dport " + serviceInfo.httpPort + " -j ACCEPT";
         ShellUtils.runCommand(command);
 
         // allow access to local SOCKS port
-        command = filterTableCommand + "-p tcp -m tcp --dport " + socksPort + " -j ACCEPT";
+        command = filterTableCommand + "-p tcp -m tcp --dport " + serviceInfo.socksPort + " -j ACCEPT";
         ShellUtils.runCommand(command);
 
         // allow access to local DNS port
-        command = filterTableCommand + "-p udp -m udp --dport " + dnsPort + " -j ACCEPT";
+        command = filterTableCommand + "-p udp -m udp --dport " + serviceInfo.dnsPort + " -j ACCEPT";
         ShellUtils.runCommand(command);
 
         // reject all other packets
