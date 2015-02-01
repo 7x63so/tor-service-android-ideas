@@ -143,9 +143,7 @@ public class TorController {
 
             connectToControlPort();
             authenticateWithCookie();
-
-            //TODO: handle sockets...
-            //initControlConnection(false);
+            resetPorts();
 
             controlConnection.setConf(torrc.asCollection());
 
@@ -244,7 +242,6 @@ public class TorController {
         int exitCode = result.exitCode;
         String output = result.output;
 
-        //TODO: custom exception
         if (exitCode != 0 && output != null && output.length() > 0) {
             String message = String.format(CMD_RESULT, Integer.toString(exitCode), output);
 
@@ -253,39 +250,34 @@ public class TorController {
         }
     }
 
-    private void initControlConnection(boolean isReconnect) throws Exception {
-        //TODO: not entirely sure what we're doing here...
-        Broadcaster.getInstance().status(TorStatus.CONNECTING);
-        String confSocks = controlConnection.getInfo("net/listeners/socks");
+    private void resetPorts() throws Exception {
+        // not entirely sure what we're doing here...
 
-        //if we are reconnected then we don't need to reset the ports
-        if (!isReconnect) {
-            try {
-                ServerSocket ss = new ServerSocket(serviceInfo.socksPort);
-                ss.close();
+        try {
+            ServerSocket ss = new ServerSocket(serviceInfo.socksPort);
+            ss.close();
 
-                Broadcaster.getInstance().log("Local SOCKS port: " + serviceInfo.socksPort);
-            } catch (Exception e) {
-                Broadcaster.getInstance().log("Error setting TransProxy port to: " + serviceInfo.socksPort);
-            }
+            Broadcaster.getInstance().log("Local SOCKS port: " + serviceInfo.socksPort);
+        } catch (Exception e) {
+            Broadcaster.getInstance().log("Error setting SOCKS port to: " + serviceInfo.socksPort);
+        }
 
-            try {
-                ServerSocket ss = new ServerSocket(serviceInfo.proxyPort);
-                ss.close();
+        try {
+            ServerSocket ss = new ServerSocket(serviceInfo.proxyPort);
+            ss.close();
 
-                Broadcaster.getInstance().log("Local TransProxy port: " + serviceInfo.proxyPort);
-            } catch (Exception e) {
-                Broadcaster.getInstance().log("ERROR setting TransProxy port to: " + serviceInfo.proxyPort);
-            }
+            Broadcaster.getInstance().log("Local TransProxy port: " + serviceInfo.proxyPort);
+        } catch (Exception e) {
+            Broadcaster.getInstance().log("ERROR setting TransProxy port to: " + serviceInfo.proxyPort);
+        }
 
-            try {
-                ServerSocket ss = new ServerSocket(serviceInfo.dnsPort);
-                ss.close();
+        try {
+            ServerSocket ss = new ServerSocket(serviceInfo.dnsPort);
+            ss.close();
 
-                Broadcaster.getInstance().log("Local DNSPort port: " + serviceInfo.proxyPort);
-            } catch (Exception e) {
-                Broadcaster.getInstance().log("ERROR setting DNSport to: " + serviceInfo.dnsPort);
-            }
+            Broadcaster.getInstance().log("Local DNSPort port: " + serviceInfo.proxyPort);
+        } catch (Exception e) {
+            Broadcaster.getInstance().log("ERROR setting DNSport to: " + serviceInfo.dnsPort);
         }
     }
 }
