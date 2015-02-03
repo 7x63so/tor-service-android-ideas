@@ -74,10 +74,9 @@ public class TorService extends Service implements EventHandler, Broadcaster.OnS
         File dirCache = getDir(DIRECTORY_TOR_DATA, Application.MODE_PRIVATE);
         resourceManager = new ResourceManager(this, dirBin.getAbsolutePath());
 
-        ServiceInfo serviceInfo = buildServiceInfo(dirCache, resourceManager.getInstalledResources());
-
         try {
             installBinaries();
+            ServiceInfo serviceInfo = buildServiceInfo(dirCache, resourceManager.getInstalledResources());
             torController = new TorController(serviceInfo);
         } catch (Exception e) {
             Broadcaster.getInstance().log("Unable to start Tor: " + e.getMessage());
