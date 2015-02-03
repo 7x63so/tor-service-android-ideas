@@ -58,6 +58,7 @@ public final class ResourceManager {
     private Context context;
     private String installedVersion = "";
 
+    //TODO: pass a Resources object instead of Context
     public ResourceManager(Context context, String pathInstallDir) {
         this.pathInstallDir = pathInstallDir;
         this.context = context;
